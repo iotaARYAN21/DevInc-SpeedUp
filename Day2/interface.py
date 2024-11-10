@@ -1,6 +1,6 @@
 import requests
 
-# Define the base URL
+
 base_url = "http://127.0.0.1:5000"
 
 def register():
@@ -36,10 +36,6 @@ def login():
             return token
         except requests.exceptions.JSONDecodeError:
             print("Error",response.text)
-        # token = response.json().get("access_token")
-        # print("Login success")
-        # print(f"jwt token : {token}")
-        # return token
     else:
         try:
             print("Login failed",response.json())
@@ -57,7 +53,6 @@ def add_task(token):
     headers = {"Authorization": f"Bearer {token}"}
     response = requests.post(f"{base_url}/tasks", json=data,headers=headers)
 
-    # if the status input is incorrect
     while status not in ['Pending','Completed']:
         print("Invalid status")
         status = input("Enter the status again")
@@ -65,7 +60,7 @@ def add_task(token):
         print("Your session has expired. Please log in again.")
     elif response.status_code == 201:
         try:
-            print(response.json())  # Expected JSON response on success
+            print(response.json())
         except requests.exceptions.JSONDecodeError:
             print("Error: Expected JSON response, got something else.")
             print("Response content:", response.text)
@@ -92,7 +87,7 @@ def update_task(token):
     response = requests.put(f"{base_url}/tasks/{task_id}", json=data,headers=headers)
     print(response.json())
 
-# Main function to select action
+
 def main():
     token = None
     while True:
@@ -109,7 +104,7 @@ def main():
             if token:
                 add_task(token)
             else:
-                print("You need to log in first.")   # Edge case for me
+                print("You need to log in first.")   # EDGE CASE FOR ME
         elif choice == '2':
             if token:
                 delete_task(token)

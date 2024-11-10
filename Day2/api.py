@@ -9,10 +9,9 @@ app.config['SECRET_KEY'] = 'your-secret-key'
 
 jwt = JWTManager(app)
 
-#  function to connect to the database
 def get_db_connection():
     conn = sqlite3.connect('todos.db')
-    conn.row_factory = sqlite3.Row  # This enables dict-like row access
+    conn.row_factory = sqlite3.Row  
     return conn
 
 @app.route('/register',methods=['POST'])
@@ -37,14 +36,7 @@ def register():
     conn.commit()
     conn.close()
     return jsonify({"message":"User registered"}),201
-    # try:
-    #     cursor.execute("INSERT INTO users (username,email,hashed_password) VALUES (?,?,?)",(username,email,hashed_password))
-    #     conn.commit()
-    #     return jsonify({'message':'User registered succ'}),201
-    # except sqlite3.IntegrityError:
-    #     return jsonify({'error':'User with same Username or email already exists'}),400
-    # finally:
-    #     conn.close()
+
 
 @app.route('/login',methods=['POST'])
 def login():

@@ -1,15 +1,14 @@
 import sqlite3
 
-# Initialize SQLite connection
+
 def create_connection():
     conn = sqlite3.connect("todos.db")
     return conn
 
-# Create todos table if it doesn't exist
+
 def create_table():
     conn = create_connection()
     cursor = conn.cursor()
-    # cursor.execute("DROP TABLE IF EXISTS todos")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS todos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -52,7 +51,7 @@ def add_user_id_column():
         conn.close()
 
 
-# Run this to create the table
+
 if __name__ == "__main__":
     create_table()
     create_users_table()
