@@ -1,7 +1,13 @@
 from flask import Flask, request, jsonify
 import sqlite3
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.config["JWT_SECRET_KEY"] = "secret-key"
+app.config['SECRET_KEY'] = 'your-secret-key'
+
+jwt = JWTManager(app)
 
 #  function to connect to the database
 def get_db_connection():
@@ -9,11 +15,63 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row  # This enables dict-like row access
     return conn
 
+@app.route('/register',methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    hashed_password = generate_password_hash(password)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if not username or not email or not password:
+        return jsonify({"error":"field is empty"}),400
+    
+    cursor.execute("SELECT * FROM users WHERE username = ? OR email = ?",(username,email))
+    existing_user = cursor.fetchone()
+    if existing_user:
+        conn.close()
+        return jsonify({"error":"User already exists"}),409
+    
+    cursor.execute("INSERT INTO users (username,email,hashed_password) VALUES (?,?,?)",(username,email,hashed_password))
+    conn.commit()
+    conn.close()
+    return jsonify({"message":"User registered"}),201
+    # try:
+    #     cursor.execute("INSERT INTO users (username,email,hashed_password) VALUES (?,?,?)",(username,email,hashed_password))
+    #     conn.commit()
+    #     return jsonify({'message':'User registered succ'}),201
+    # except sqlite3.IntegrityError:
+    #     return jsonify({'error':'User with same Username or email already exists'}),400
+    # finally:
+    #     conn.close()
+
+@app.route('/login',methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?",(username,))
+    user = cursor.fetchone()
+    conn.close()
+
+    if user and check_password_hash(user['hashed_password'],password):
+        access_token = create_access_token(identity=user['id'])
+        return jsonify({"message": "Login successful", "access_token": access_token}), 200
+    return jsonify({'error':'Invalid credentials'}),401
+    
+
 # Route to add a new task (Create)
 @app.route('/tasks', methods=['POST'])
+@jwt_required() # now only authenticated users can access this functioin
 def add_task():
+    current_user = get_jwt_identity()
     data = request.get_json()
     task = data.get('task')
+    print(data)
     status = data.get('status', 'Pending')
 
     if not task:
@@ -21,7 +79,7 @@ def add_task():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO todos (task, status) VALUES (?, ?)", (task, status))
+    cursor.execute("INSERT INTO todos (task, status, user_id) VALUES (?, ?, ?)", (task, status, current_user))
     conn.commit()
     task_id = cursor.lastrowid
     conn.close()
@@ -30,10 +88,12 @@ def add_task():
 
 # Route to delete a task by ID (Delete)
 @app.route('/tasks/<int:task_id>', methods=['DELETE'])
+@jwt_required()
 def delete_task(task_id):
+    current_user = get_jwt_identity()
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM todos WHERE id = ?", (task_id,))
+    cursor.execute("DELETE FROM todos WHERE id = ? AND user_id = ?", (task_id,current_user))
     conn.commit()
     conn.close()
 
@@ -44,7 +104,9 @@ def delete_task(task_id):
 
 # Route to update a task by ID (Update)
 @app.route('/tasks/<int:task_id>', methods=['PUT'])
+@jwt_required()
 def update_task(task_id):
+    current_user = get_jwt_identity()
     data = request.get_json()
     task = data.get('task')
     status = data.get('status')
@@ -57,8 +119,8 @@ def update_task(task_id):
     cursor.execute("""
         UPDATE todos
         SET task = COALESCE(?, task), status = COALESCE(?, status)
-        WHERE id = ?
-    """, (task, status, task_id))
+        WHERE id = ? AND user_id = ?
+    """, (task, status, task_id,current_user))
     conn.commit()
     conn.close()
 
